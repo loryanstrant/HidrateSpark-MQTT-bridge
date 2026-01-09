@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HidrateSpark BLE Reader</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+        
+        .button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .button.danger {
+            background: #e74c3c;
+        }
+        
+        .button.danger:hover {
+            background: #c0392b;
+        }
+        
+        .device-list {
+            list-style: none;
+            margin-top: 20px;
+        }
+        
+        .device-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+        
+        .device-item:hover {
+            background: #e9ecef;
+        }
+        
+        .device-info {
+            flex: 1;
+        }
+        
+        .device-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 1.1rem;
+        }
+        
+        .device-address {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .status-connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .info-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        .info-label {
+            color: #6c757d;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+        }
+        
+        .info-value {
+            color: #333;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .data-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💧 HidrateSpark BLE Reader</h1>
+            <p>Monitor your HidrateSpark PRO bottle</p>
+        </div>
+        
+        <div class="card">
+            <h2>Connection Status</h2>
+            <div id="status">
+                <span class="status-badge status-disconnected">Disconnected</span>
+            </div>
+            <div id="deviceInfo" style="display: none;"></div>
+        </div>
+        
+        <div class="card">
+            <h2>Scan for Devices</h2>
+            <div class="button-group">
+                <button class="button" id="scanBtn" onclick="scanDevices()">Scan for Bottles</button>
+                <button class="button danger" id="disconnectBtn" onclick="disconnect()" style="display: none;">Disconnect</button>
+            </div>
+            <div id="scanLoading" class="loading" style="display: none;">Scanning...</div>
+            <div id="scanError" class="error" style="display: none;"></div>
+            <ul class="device-list" id="deviceList"></ul>
+        </div>
+        
+        <div class="card" id="dataCard" style="display: none;">
+            <h2>Hydration Data</h2>
+            <div class="button-group">
+                <button class="button" onclick="requestUpdate()">Request Update</button>
+                <button class="button" onclick="refreshData()">Refresh Data</button>
+            </div>
+            <div id="dataTable"></div>
+        </div>
+    </div>
+    
+    <script>
+        let statusInterval = null;
+        
+        async function scanDevices() {
+            const scanBtn = document.getElementById('scanBtn');
+            const scanLoading = document.getElementById('scanLoading');
+            const scanError = document.getElementById('scanError');
+            const deviceList = document.getElementById('deviceList');
+            
+            scanBtn.disabled = true;
+            scanLoading.style.display = 'block';
+            scanError.style.display = 'none';
+            deviceList.innerHTML = '';
+            
+            try {
+                const response = await fetch('/api/scan');
+                const data = await response.json();
+                
+                if (data.success && data.devices.length > 0) {
+                    data.devices.forEach(device => {
+                        const li = document.createElement('li');
+                        li.className = 'device-item';
+                        li.innerHTML = `
+                            <div class="device-info">
+                                <div class="device-name">${device.name}</div>
+                                <div class="device-address">${device.address} (RSSI: ${device.rssi})</div>
+                            </div>
+                            <button class="button" onclick="connectDevice('${device.address}')">Connect</button>
+                        `;
+                        deviceList.appendChild(li);
+                    });
+                } else {
+                    deviceList.innerHTML = '<li class="device-item">No HidrateSpark bottles found</li>';
+                }
+            } catch (error) {
+                scanError.textContent = 'Error scanning: ' + error.message;
+                scanError.style.display = 'block';
+            } finally {
+                scanBtn.disabled = false;
+                scanLoading.style.display = 'none';
+            }
+        }
+        
+        async function connectDevice(address) {
+            try {
+                const response = await fetch('/api/connect', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({address: address})
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    startStatusPolling();
+                    updateStatus();
+                } else {
+                    alert('Failed to connect: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error connecting: ' + error.message);
+            }
+        }
+        
+        async function disconnect() {
+            try {
+                const response = await fetch('/api/disconnect', {method: 'POST'});
+                const data = await response.json();
+                
+                if (data.success) {
+                    stopStatusPolling();
+                    updateStatus();
+                }
+            } catch (error) {
+                alert('Error disconnecting: ' + error.message);
+            }
+        }
+        
+        async function updateStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                
+                const statusDiv = document.getElementById('status');
+                const deviceInfo = document.getElementById('deviceInfo');
+                const disconnectBtn = document.getElementById('disconnectBtn');
+                const dataCard = document.getElementById('dataCard');
+                
+                if (data.connected) {
+                    statusDiv.innerHTML = '<span class="status-badge status-connected">Connected</span>';
+                    disconnectBtn.style.display = 'inline-block';
+                    dataCard.style.display = 'block';
+                    
+                    if (data.info) {
+                        deviceInfo.style.display = 'block';
+                        deviceInfo.innerHTML = `
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <div class="info-label">Battery</div>
+                                    <div class="info-value">${data.info.battery}%</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">Model</div>
+                                    <div class="info-value">${data.info.model}</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">Bottle Size</div>
+                                    <div class="info-value">${data.info.bottle_size} ml</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">Firmware</div>
+                                    <div class="info-value">${data.info.firmware}</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    refreshData();
+                } else {
+                    statusDiv.innerHTML = '<span class="status-badge status-disconnected">Disconnected</span>';
+                    deviceInfo.style.display = 'none';
+                    disconnectBtn.style.display = 'none';
+                    dataCard.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error updating status:', error);
+            }
+        }
+        
+        async function refreshData() {
+            try {
+                const response = await fetch('/api/data');
+                const data = await response.json();
+                
+                const dataTable = document.getElementById('dataTable');
+                
+                if (data.success && data.data.length > 0) {
+                    let html = `
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Sip Size (ml)</th>
+                                    <th>Total (ml)</th>
+                                    <th>Time Ago</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    data.data.forEach(sip => {
+                        const date = new Date(sip.timestamp);
+                        const timeAgo = formatTimeAgo(sip.seconds_ago);
+                        html += `
+                            <tr>
+                                <td>${date.toLocaleString()}</td>
+                                <td>${Math.round(sip.sip_size)}</td>
+                                <td>${sip.total}</td>
+                                <td>${timeAgo}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</tbody></table>';
+                    dataTable.innerHTML = html;
+                } else {
+                    dataTable.innerHTML = '<p class="loading">No hydration data yet. Take a sip from your bottle!</p>';
+                }
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+            }
+        }
+        
+        async function requestUpdate() {
+            try {
+                const response = await fetch('/api/request_update', {method: 'POST'});
+                const data = await response.json();
+                
+                if (data.success) {
+                    setTimeout(refreshData, 2000);
+                }
+            } catch (error) {
+                alert('Error requesting update: ' + error.message);
+            }
+        }
+        
+        function formatTimeAgo(seconds) {
+            if (seconds < 60) return `${seconds}s ago`;
+            if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+            if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+            return `${Math.floor(seconds / 86400)}d ago`;
+        }
+        
+        function startStatusPolling() {
+            if (!statusInterval) {
+                statusInterval = setInterval(updateStatus, 5000);
+            }
+        }
+        
+        function stopStatusPolling() {
+            if (statusInterval) {
+                clearInterval(statusInterval);
+                statusInterval = null;
+            }
+        }
+        
+        // Initial status check
+        updateStatus();
+    </script>
+</body>
+</html>

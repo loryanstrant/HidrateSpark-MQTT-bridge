@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  hidrate-reader:
+    image: ghcr.io/loryanstrant/hidratespark-ble-reader:latest
+    container_name: hidrate-reader
+    network_mode: host
+    volumes:
+      - /var/run/dbus:/var/run/dbus
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    restart: unless-stopped
