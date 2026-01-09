@@ -13,6 +13,9 @@ from hidrate_ble import HidrateSpark
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'hidrate-spark-ble-reader'
 
+# Constants
+MONITORING_INTERVAL_SECONDS = 600  # 10 minutes
+
 # Global state
 bottle = HidrateSpark()
 bottle_lock = Lock()
@@ -155,8 +158,8 @@ def monitoring_loop():
             except Exception as e:
                 print(f"Error in monitoring loop: {e}")
             
-            # Wait 10 minutes before next update
-            await asyncio.sleep(600)
+            # Wait before next update
+            await asyncio.sleep(MONITORING_INTERVAL_SECONDS)
     
     try:
         loop.run_until_complete(monitor())

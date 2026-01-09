@@ -26,6 +26,10 @@ class HidrateSpark:
     DEBUG = 'e3578b0d-caa7-46d6-b7c2-7331c08de044'
     LED_CONTROL = 'a1d9a5bf-f5d8-49f3-a440-e6bf27440cb0'
     
+    # Protocol constants
+    APPEARANCE_CHARACTERISTIC_HANDLE = 12  # Handle for bottle size
+    REQUEST_SIP_DATA_CMD = 0x57  # Command to request sip data
+    
     def __init__(self):
         self.bottle_size = 0
         self.sip_data = []
@@ -54,7 +58,7 @@ class HidrateSpark:
         
         if self.connected:
             # Get bottle size from appearance characteristic
-            appearance = await self.client.read_gatt_char(12)
+            appearance = await self.client.read_gatt_char(self.APPEARANCE_CHARACTERISTIC_HANDLE)
             self.bottle_size = int.from_bytes(appearance[0:2], byteorder='little')
             
             # Start notifications for sip data
@@ -91,8 +95,8 @@ class HidrateSpark:
         if not self.connected:
             return False
         
-        # Write 0x57 to request next sip
-        await self.client.write_gatt_char(self.DATA_POINT, bytearray([0x57]))
+        # Write command to request next sip
+        await self.client.write_gatt_char(self.DATA_POINT, bytearray([self.REQUEST_SIP_DATA_CMD]))
         return True
     
     def _handle_sip_notification(self, sender, data):
@@ -126,12 +130,12 @@ class HidrateSpark:
         sip_start = int.from_bytes(data[12:14], byteorder='little')
         sip_stop = int.from_bytes(data[14:16], byteorder='little')
         
-        # Calculate sip size
-        d2 = sip_max - min(sip_start, sip_min)
-        if d2 > 0:
-            d1 = max(0.0, min(1.0, (sip_start - min(sip_start, sip_min)) / d2))
-            d2_norm = max(0.0, min(1.0, (sip_stop - min(sip_stop, sip_min)) / d2))
-            sip_size = (d1 - d2_norm) * self.bottle_size
+        # Calculate sip size using sensor data range
+        sensor_range = sip_max - min(sip_start, sip_min)
+        if sensor_range > 0:
+            start_percentage = max(0.0, min(1.0, (sip_start - min(sip_start, sip_min)) / sensor_range))
+            stop_percentage = max(0.0, min(1.0, (sip_stop - min(sip_stop, sip_min)) / sensor_range))
+            sip_size = (start_percentage - stop_percentage) * self.bottle_size
         else:
             sip_size = 0
         
