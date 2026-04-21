@@ -2,7 +2,11 @@
 
 A self-hosted Docker bridge that connects to a HidrateSpark smart water bottle over BLE and publishes live drinking data — sips, totals, current fill level, battery, refill events — to MQTT, with full Home Assistant auto-discovery.
 
-![Dashboard](docs/dashboard.png)
+<img width="1017" height="354" alt="Skinner" src="https://github.com/user-attachments/assets/44739fcd-6e00-47ae-a511-e4a8109feca7" />
+
+
+
+
 
 ## Why this exists
 
@@ -15,6 +19,8 @@ It is a from-scratch reimplementation that:
 - **Publishes Home Assistant MQTT discovery** — the device shows up automatically with battery, totals, current fill, last sip time, and weight diagnostics.
 - **Auto-detects refills from the bottle itself** by combining the cap-open/close characteristic with the on-bottle weight sensor — no manual button required.
 - **Tracks current fill level live** from the weight sensor (auto-calibrated on each refill), so the value stays correct even when sips happen out of range.
+
+![Dashboard](docs/dashboard.png)
 
 ## Features
 
