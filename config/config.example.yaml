@@ -1,0 +1,20 @@
+mqtt:
+  enabled: true
+  host: mqtt.example.com
+  port: 1883
+  username: mqtt
+  password: changeme
+  tls: false
+  base_topic: hidrate
+  client_id: hidrate-mqtt-bridge
+  ha_discovery: true
+  ha_discovery_prefix: homeassistant
+bottle:
+  mac: AA:BB:CC:DD:EE:FF
+  name_prefix: h2o
+  size_ml: 591
+  poll_interval_s: 30
+web:
+  host: 0.0.0.0
+  port: 8080
+runtime: {}

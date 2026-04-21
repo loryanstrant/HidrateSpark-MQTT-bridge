@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="card">
+  <div class="row">
+    <div>
+      <span class="label">Bottle:</span>
+      <span id="bottle-status" class="pill {{ 'ok' if status.connected else 'bad' }}">
+        {{ 'Connected' if status.connected else 'Disconnected' }}
+      </span>
+    </div>
+    <div>
+      <span class="label">MQTT:</span>
+      <span id="mqtt-status" class="pill {{ 'ok' if mqtt_connected else 'bad' }}">
+        {{ 'Connected' if mqtt_connected else 'Disconnected' }}
+      </span>
+    </div>
+    <div>
+      <span class="label">Path:</span>
+      <span id="hs-path">{{ status.handshake_path or '—' }}</span>
+    </div>
+    <div style="margin-left:auto" class="row">
+      <button onclick="postAction('/api/reconnect')">Reconnect</button>
+      <button onclick="postAction('/api/force_sync')">Force sync</button>
+    </div>
+  </div>
+  <p id="last-error" class="bad" style="margin:.5rem 0 0">{{ status.last_error or '' }}</p>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <div class="label">Battery</div>
+    <div class="stat"><span id="battery">{{ status.battery_pct if status.battery_pct is not none else '—' }}</span>%</div>
+  </div>
+  <div class="card">
+    <div class="label">Current fill (estimated)</div>
+    <div class="stat"><span id="current-fill">{{ status.current_fill_ml }}</span> mL</div>
+    <div class="label"><span id="current-fill-pct">{{ status.current_fill_pct }}</span>% of <span id="bottle-size">{{ status.bottle_size_ml }}</span> mL</div>
+  </div>
+  <div class="card">
+    <div class="label">Today</div>
+    <div class="stat"><span id="total-today">{{ status.total_today_ml }}</span> mL</div>
+  </div>
+  <div class="card">
+    <div class="label">Lifetime</div>
+    <div class="stat"><span id="total-lifetime">{{ status.lifetime_total_ml }}</span> mL</div>
+  </div>
+  <div class="card">
+    <div class="label">Last sip</div>
+    <div class="stat"><span id="last-sip-vol">{{ status.last_sip.volume_ml if status.last_sip else '—' }}</span> mL</div>
+    <div class="label" id="last-sip-time">{{ status.last_sip.iso if status.last_sip else '' }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Recent sips</h3>
+  <table>
+    <thead><tr><th>When</th><th>Volume</th></tr></thead>
+    <tbody id="sips"><tr><td colspan=2>Loading…</td></tr></tbody>
+  </table>
+</div>
+
+<script>
+async function postAction(url) {
+  await fetch(url, {method:'POST'});
+  refresh();
+}
+async function refresh() {
+  try {
+    const r = await fetch('/api/status');
+    const s = await r.json();
+    document.getElementById('battery').textContent = s.battery_pct ?? '—';
+    document.getElementById('total-today').textContent = s.total_today_ml;
+    document.getElementById('total-lifetime').textContent = s.lifetime_total_ml;
+    document.getElementById('current-fill').textContent = s.current_fill_ml;
+    document.getElementById('current-fill-pct').textContent = s.current_fill_pct;
+    document.getElementById('bottle-size').textContent = s.bottle_size_ml;
+    document.getElementById('hs-path').textContent = s.handshake_path || '—';
+    document.getElementById('last-error').textContent = s.last_error || '';
+    const bs = document.getElementById('bottle-status');
+    bs.textContent = s.connected ? 'Connected' : 'Disconnected';
+    bs.className = 'pill ' + (s.connected ? 'ok' : 'bad');
+    const ms = document.getElementById('mqtt-status');
+    ms.textContent = s.mqtt_connected ? 'Connected' : 'Disconnected';
+    ms.className = 'pill ' + (s.mqtt_connected ? 'ok' : 'bad');
+    if (s.last_sip) {
+      document.getElementById('last-sip-vol').textContent = s.last_sip.volume_ml;
+      document.getElementById('last-sip-time').textContent = new Date(s.last_sip.iso).toLocaleString();
+    }
+    const tbody = document.getElementById('sips');
+    if (s.recent_sips && s.recent_sips.length) {
+      tbody.innerHTML = s.recent_sips.map(x =>
+        `<tr><td>${new Date(x.iso).toLocaleString()}</td><td>${x.volume_ml} mL</td></tr>`).join('');
+    } else {
+      tbody.innerHTML = '<tr><td colspan=2>No sips yet.</td></tr>';
+    }
+  } catch (e) { console.error(e); }
+}
+refresh();
+setInterval(refresh, 5000);
+</script>
+{% endblock %}

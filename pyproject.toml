@@ -1,0 +1,15 @@
+[project]
+name = "hidrate-mqtt-bridge"
+version = "0.1.0"
+description = "HidrateSpark BLE -> MQTT bridge"
+requires-python = ">=3.11"
+dependencies = [
+    "bleak>=0.22.3",
+    "paho-mqtt>=2.1.0",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.8",
+    "pyyaml>=6.0",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.12",
+]

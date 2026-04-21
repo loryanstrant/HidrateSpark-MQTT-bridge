@@ -1,27 +1,23 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
-# Install system dependencies for Bluetooth
-RUN apt-get update && apt-get install -y \
-    bluez \
-    bluetooth \
-    libbluetooth-dev \
-    libglib2.0-dev \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        bluez \
+        dbus \
+        libglib2.0-0 \
+        ca-certificates \
+        tzdata \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
 WORKDIR /app
 
-# Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application files
-COPY app.py .
-COPY hidrate_ble.py .
-COPY templates/ templates/
+COPY app /app/app
 
-# Expose port for web interface
-EXPOSE 5000
+ENV CONFIG_PATH=/config/config.yaml \
+    PYTHONUNBUFFERED=1
 
-# Run the application
-CMD ["python", "app.py"]
+EXPOSE 8080
+
+CMD ["python", "-m", "app"]
