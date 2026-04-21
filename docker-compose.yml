@@ -1,8 +1,7 @@
 services:
-  hidrate-mqtt-bridge:
-    build: .
-    image: hidrate-mqtt-bridge:dev
-    container_name: hidrate-mqtt-bridge
+  hidratespark-mqtt-bridge:
+    image: ghcr.io/loryanstrant/hidratespark-mqtt-bridge:latest
+    container_name: hidratespark-mqtt-bridge
     network_mode: host
     cap_add:
       - NET_ADMIN
