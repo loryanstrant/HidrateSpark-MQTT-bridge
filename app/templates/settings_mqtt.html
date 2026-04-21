@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="card">
+  <h2>MQTT broker</h2>
+  {% if request.query_params.get('saved') %}<p class="ok">Saved.</p>{% endif %}
+  <form method="post">
+    <label><input type="checkbox" name="enabled" {% if mqtt.enabled %}checked{% endif %}> Enabled</label>
+    <label>Host <input type="text" name="host" value="{{ mqtt.host }}" placeholder="192.168.1.10"></label>
+    <label>Port <input type="number" name="port" value="{{ mqtt.port }}"></label>
+    <label>Username <input type="text" name="username" value="{{ mqtt.username }}"></label>
+    <label>Password <input type="password" name="password" value="{{ mqtt.password }}"></label>
+    <label><input type="checkbox" name="tls" {% if mqtt.tls %}checked{% endif %}> Use TLS</label>
+    <label>Base topic <input type="text" name="base_topic" value="{{ mqtt.base_topic }}"></label>
+    <label>Client ID <input type="text" name="client_id" value="{{ mqtt.client_id }}"></label>
+    <label><input type="checkbox" name="ha_discovery" {% if mqtt.ha_discovery %}checked{% endif %}> Home Assistant discovery</label>
+    <label>HA discovery prefix <input type="text" name="ha_discovery_prefix" value="{{ mqtt.ha_discovery_prefix }}"></label>
+    <p><button type="submit">Save</button></p>
+  </form>
+</div>
+{% endblock %}

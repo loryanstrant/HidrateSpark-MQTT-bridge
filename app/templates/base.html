@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}HidrateSpark MQTT Bridge{% endblock %}</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, sans-serif; max-width: 920px; margin: 0 auto; padding: 1rem; }
+    nav { display: flex; gap: 1rem; padding: .5rem 0 1rem; border-bottom: 1px solid #888; margin-bottom: 1rem; }
+    nav a { text-decoration: none; }
+    .card { border: 1px solid #888; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+    .stat { font-size: 1.6rem; font-weight: 600; }
+    .label { font-size: .85rem; opacity: .75; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: .35rem .5rem; border-bottom: 1px solid #4444; font-size: .9rem; }
+    label { display: block; margin: .5rem 0 .2rem; font-size: .9rem; }
+    input[type=text], input[type=password], input[type=number] { width: 100%; padding: .4rem; box-sizing: border-box; }
+    button { padding: .5rem 1rem; cursor: pointer; }
+    .ok { color: #2a7; }
+    .bad { color: #c33; }
+    .pill { display: inline-block; padding: .15rem .55rem; border-radius: 999px; font-size: .8rem; }
+    .pill.ok { background: #2a73; color: #2a7; }
+    .pill.bad { background: #c333; color: #c33; }
+    .row { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <header style="display:flex;align-items:center;gap:.75rem;padding:.75rem 0;border-bottom:2px solid #4af;margin-bottom:.5rem;">
+    <span style="font-size:1.6rem">💧</span>
+    <h1 style="margin:0;font-size:1.25rem;flex:1">HidrateSpark MQTT Bridge</h1>
+    <a href="https://github.com/loryanstrant/HidrateSpark-MQTT-bridge"
+       target="_blank" rel="noopener"
+       style="font-size:.85rem;text-decoration:none;border:1px solid #888;padding:.3rem .6rem;border-radius:6px;">
+      ⭐ GitHub
+    </a>
+  </header>
+  <nav>
+    <a href="/"><strong>Dashboard</strong></a>
+    <a href="/settings/mqtt">MQTT</a>
+    <a href="/settings/bottle">Bottle</a>
+  </nav>
+  {% block body %}{% endblock %}
+</body>
+</html>

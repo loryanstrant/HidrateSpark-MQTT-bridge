@@ -1,149 +1,158 @@
-# HidrateSpark-BLE-Reader
+# HidrateSpark MQTT Bridge
 
-A Docker container that uses the host's Bluetooth connection to read data from a HidrateSpark PRO bottle via BLE (Bluetooth Low Energy).
+A self-hosted Docker bridge that connects to a HidrateSpark smart water bottle over BLE and publishes live drinking data — sips, totals, current fill level, battery, refill events — to MQTT, with full Home Assistant auto-discovery.
+
+![Dashboard](docs/dashboard.png)
+
+## Why this exists
+
+The HidrateSpark mobile app is fine, but if you live in Home Assistant you want the bottle's data on the wall, in dashboards, and driving automations. This bridge runs on a Linux box near your bottle (a Pi, an Intel NUC, anything with Bluetooth) and turns the bottle into a normal MQTT device — no cloud, no phone required, no Garmin watch.
+
+It is a from-scratch reimplementation that:
+
+- **Performs the proper BLE handshake** (13-step sequence borrowed from [maxperron/HydroSync](https://github.com/maxperron/HydroSync)) so the bottle actually streams data instead of going silent.
+- **Keeps a single persistent BLE connection** with auto-reconnect & exponential back-off (the previous container reopened a connection per request — that's why nothing worked).
+- **Publishes Home Assistant MQTT discovery** — the device shows up automatically with battery, totals, current fill, last sip time, and weight diagnostics.
+- **Auto-detects refills from the bottle itself** by combining the cap-open/close characteristic with the on-bottle weight sensor — no manual button required.
+- **Tracks current fill level live** from the weight sensor (auto-calibrated on each refill), so the value stays correct even when sips happen out of range.
 
 ## Features
 
-- 🔍 **Scan for HidrateSpark bottles** - Automatically discover nearby bottles
-- 🔗 **Simple connection management** - Easy web-based interface to connect/disconnect
-- 📊 **Real-time data monitoring** - View hydration data including sip size, total intake, and timestamps
-- ⏰ **Automatic data sync** - Periodically downloads data from the bottle every 10 minutes
-- 🌐 **Web interface** - User-friendly interface accessible from any browser
-- 🐳 **Docker ready** - Runs in a container with access to host Bluetooth
-- 📦 **GHCR hosted** - Automatically built and published to GitHub Container Registry
+- 🔋 Battery percentage
+- 💧 Per-sip events with timestamps + dedup
+- 📊 Daily total (rolls at midnight, persisted across restarts) + lifetime total
+- 🚰 **Auto-refill detection** via cap-state + weight delta
+- ⚖️ **Live fill level** driven by the bottle's weight sensor (auto-calibrated)
+- 📡 MQTT publish with LWT (Last Will = "offline")
+- 🏠 Home Assistant MQTT discovery (sensors + binary sensor)
+- 🌐 Web UI for status, settings, and BLE scan
+- 🔁 Persistent state — fill, totals, calibration survive container restarts
+- 🐧 Runs on Linux + BlueZ, no special hardware
 
-## Requirements
+## Quick start
 
-- Docker
-- Bluetooth adapter on the host
-- HidrateSpark PRO bottle
+### Prerequisites
 
-## Quick Start
+- A Linux host with a working Bluetooth adapter
+- Docker + docker-compose
+- An MQTT broker reachable from the host
+- Your bottle's BLE MAC address
 
-### Using Docker Compose (Recommended)
+### Pair the bottle once with the official app
 
-Create a `docker-compose.yml` file:
+You **must pair the bottle with the HidrateSpark phone app at least once first.** This puts the bottle into "remembered" mode and records its MAC address. After that, see the [post-pairing guidance](#after-pairing--using-this-bridge) below.
+
+### Install
+
+```bash
+git clone https://github.com/loryanstrant/HidrateSpark-MQTT-bridge.git
+cd HidrateSpark-MQTT-bridge
+cp config/config.example.yaml config/config.yaml
+$EDITOR config/config.yaml      # set bottle.mac, mqtt.host, etc.
+docker compose up -d
+```
+
+Open `http://<host>:8080` for the dashboard. The bottle should connect within ~30 seconds. Check container logs with `docker logs -f hidrate-mqtt-bridge` if not.
+
+### Configuration
+
+`config/config.yaml`:
 
 ```yaml
-version: '3.8'
-
-services:
-  hidrate-reader:
-    image: ghcr.io/loryanstrant/hidratespark-ble-reader:latest
-    container_name: hidrate-reader
-    network_mode: host
-    volumes:
-      - /var/run/dbus:/var/run/dbus
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/bus/usb:/dev/bus/usb
-    restart: unless-stopped
+mqtt:
+  enabled: true
+  host: mqtt.example.com
+  port: 1883
+  username: mqtt
+  password: changeme
+  tls: false
+  base_topic: hidrate            # all topics published under this
+  ha_discovery: true             # publish HA MQTT discovery
+  ha_discovery_prefix: homeassistant
+bottle:
+  mac: AA:BB:CC:DD:EE:FF         # required
+  name_prefix: h2o               # used for fallback discovery scan
+  size_ml: 591                   # 591 (20oz) or 621 (21oz) etc.
+web:
+  host: 0.0.0.0
+  port: 8080
 ```
 
-Then run:
+The `runtime:` block at the bottom of `config.yaml` is auto-managed by the bridge — current fill, lifetime total, today total, and weight calibration are written there continuously and reloaded on container restart.
 
-```bash
-docker-compose up -d
+### Home Assistant
+
+If `ha_discovery: true` and your HA instance shares the broker, a "HidrateSpark" device appears under **Settings → Devices & Services → MQTT** with these entities:
+
+| Entity | Type |
+|---|---|
+| Battery | sensor (%, `device_class: battery`) |
+| Water Today | sensor (mL, `state_class: total_increasing`) |
+| Water Lifetime | sensor (mL, `state_class: total_increasing`) |
+| Current Fill | sensor (mL) |
+| Current Fill Percent | sensor (%) |
+| Last Sip Volume | sensor (mL) |
+| Last Sip Time | sensor (`device_class: timestamp`) |
+| Bottle Weight Raw | diagnostic sensor |
+| Connected | binary_sensor |
+
+The device card's **"Visit"** link points back to this repository.
+
+## After pairing — using this bridge
+
+A few things to know once the bridge is running.
+
+### Do I uninstall the HidrateSpark app?
+
+**You don't have to.** They co-exist fine *as long as the phone app isn't actively connected when you want the bridge to read the bottle.* The bottle only allows one BLE connection at a time. Practical guidance:
+
+- **Force-close the HidrateSpark app on your phone**, or revoke its Bluetooth permission, or just put the phone in airplane mode when you're at home.
+- Keep the app installed if you want firmware updates or the cap LED settings — open it occasionally, then close it.
+- If you don't care about firmware updates, **uninstalling the phone app is the cleanest option** and prevents accidental reconnects.
+
+### What happens if my phone connects when the bottle is away from the host?
+
+If your phone is nearby and the bottle is not near the host running this bridge, the phone will probably grab it. When the bottle comes back into range of the host, this bridge will reconnect on its own — but only after the phone disconnects (puts the bottle back in advertising state). So you may briefly see "offline" in HA. Connection resumes automatically once the phone lets go.
+
+### What happens if I take the bottle out of range?
+
+- HA shows the device as `unavailable` (LWT goes `offline`).
+- All sips taken while away are **buffered on-bottle** and replayed on reconnect with their original timestamps — daily and lifetime totals stay correct.
+- Battery is re-read on reconnect.
+- Current fill snaps to the correct value within ~2 seconds of reconnect (weight sensor is live).
+- See [docs/SYNC_AND_PROTOCOL.md](docs/SYNC_AND_PROTOCOL.md#offline-behaviour) for the full table of what does and does not survive a disconnect.
+
+### Bluetooth performance tips
+
+- BlueZ on Linux works best when AppArmor isn't blocking it. The compose file sets `security_opt: apparmor=unconfined` for that reason on Ubuntu 24.04.
+- Place the host within ~5 m of where the bottle normally sits. Walls/cupboards halve the range.
+- A USB Bluetooth adapter on a short cable usually beats the on-board adapter.
+
+## Repository layout
+
 ```
-
-### Using Docker Run
-
-```bash
-docker run -d \
-  --name hidrate-reader \
-  --network host \
-  --cap-add NET_ADMIN \
-  -v /var/run/dbus:/var/run/dbus \
-  --device /dev/bus/usb:/dev/bus/usb \
-  --restart unless-stopped \
-  ghcr.io/loryanstrant/hidratespark-ble-reader:latest
+app/
+  __main__.py        Orchestrator: BLE + MQTT + web UI in one event loop
+  ble.py             BleakClient w/ handshake, drain, refill detection
+  mqtt.py            paho-mqtt v2 publisher + HA discovery
+  state.py           In-memory + persisted state (sips, totals, fill, calibration)
+  web.py             FastAPI dashboard & settings
+  config.py          Pydantic settings, YAML round-trip
+  templates/         Jinja2 templates
+config/
+  config.example.yaml
+docs/
+  dashboard.png
+  SYNC_AND_PROTOCOL.md   ← deep-dive: BLE characteristics, refill maths, offline sync
+Dockerfile
+docker-compose.yml
 ```
-
-### Access the Web Interface
-
-Open your browser and navigate to:
-
-```
-http://localhost:5000
-```
-
-## Usage
-
-1. **Scan for Devices**: Click the "Scan for Bottles" button to discover nearby HidrateSpark bottles
-2. **Connect**: Click "Connect" next to your bottle in the device list
-3. **Monitor**: View real-time battery level, bottle information, and hydration data
-4. **Auto-sync**: The container will automatically request data updates every 10 minutes
-5. **Manual Update**: Click "Request Update" to manually fetch the latest data
-
-## Building from Source
-
-Clone the repository and build the Docker image:
-
-```bash
-git clone https://github.com/loryanstrant/HidrateSpark-BLE-Reader.git
-cd HidrateSpark-BLE-Reader
-docker build -t hidrate-reader .
-```
-
-## Development
-
-### Local Development without Docker
-
-1. Install Python dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-2. Run the application:
-```bash
-python app.py
-```
-
-3. Access at `http://localhost:5000`
-
-## Architecture
-
-The application consists of three main components:
-
-- **hidrate_ble.py**: BLE interface module for communicating with HidrateSpark bottles
-- **app.py**: Flask web application providing REST API and serving the web interface
-- **templates/index.html**: Responsive web UI for device management and data visualization
-
-## Bluetooth Permissions
-
-The container requires:
-- `--network host`: Access to host network for BLE communication
-- `--cap-add NET_ADMIN`: Network administration capabilities
-- `-v /var/run/dbus:/var/run/dbus`: DBus socket for Bluetooth communication
-- `--device /dev/bus/usb:/dev/bus/usb`: USB device access (if using USB Bluetooth adapter)
-
-## Troubleshooting
-
-### Container can't find Bluetooth adapter
-
-Ensure your host has a working Bluetooth adapter:
-```bash
-bluetoothctl list
-```
-
-### Can't scan for devices
-
-Make sure Bluetooth is enabled on the host:
-```bash
-sudo systemctl status bluetooth
-```
-
-### Permission denied errors
-
-Ensure the container has the necessary capabilities and device access as shown in the docker run command.
 
 ## Credits
 
-This project builds upon code and insights from:
-- [TheCrushinator.Home.Health.BottleSync](https://github.com/The-Crushinator/TheCrushinator.Home.Health.BottleSync)
-- [wban-python](https://github.com/choonkiatlee/wban-python)
+- BLE handshake sequence and frame parser adapted from [maxperron/HydroSync](https://github.com/maxperron/HydroSync) (GPL-3.0).
+- Reverse-engineering of the cap and weight characteristics done live against firmware `80.18` on the nRF52832 chipset — see [docs/SYNC_AND_PROTOCOL.md](docs/SYNC_AND_PROTOCOL.md).
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT — see [LICENSE](LICENSE).

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="card">
+  <h2>Bottle</h2>
+  {% if request.query_params.get('saved') %}<p class="ok">Saved.</p>{% endif %}
+  <form method="post">
+    <label>BLE MAC <input type="text" name="mac" value="{{ bottle.mac }}" placeholder="EC:6D:96:05:F3:01"></label>
+    <label>Name prefix (fallback) <input type="text" name="name_prefix" value="{{ bottle.name_prefix }}"></label>
+    <label>Bottle size (mL) <input type="number" name="size_ml" value="{{ bottle.size_ml }}"></label>
+    <label>Poll interval (s) <input type="number" name="poll_interval_s" value="{{ bottle.poll_interval_s }}"></label>
+    <p><button type="submit">Save</button></p>
+  </form>
+</div>
+
+<div class="card">
+  <h3>Scan for devices</h3>
+  <p><button type="button" onclick="scan()">Scan (12s)</button></p>
+  <ul id="scan-results"></ul>
+</div>
+
+<script>
+async function scan() {
+  const ul = document.getElementById('scan-results');
+  ul.innerHTML = '<li>Scanning…</li>';
+  try {
+    const r = await fetch('/api/scan', {method:'POST'});
+    const j = await r.json();
+    if (j.error) { ul.innerHTML = '<li class=bad>' + j.error + '</li>'; return; }
+    ul.innerHTML = j.devices.map(d => {
+      const c = d.match ? 'ok' : '';
+      return `<li class="${c}"><code>${d.address}</code> — ${d.name}` +
+             (d.match ? ` <button onclick="document.querySelector('input[name=mac]').value='${d.address}'">Use</button>` : '') +
+             `</li>`;
+    }).join('') || '<li>None found.</li>';
+  } catch (e) { ul.innerHTML = '<li class=bad>'+e+'</li>'; }
+}
+</script>
+{% endblock %}

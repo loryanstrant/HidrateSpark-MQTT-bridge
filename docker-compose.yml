@@ -1,14 +1,19 @@
-version: '3.8'
-
 services:
-  hidrate-reader:
-    image: ghcr.io/loryanstrant/hidratespark-ble-reader:latest
-    container_name: hidrate-reader
+  hidrate-mqtt-bridge:
+    build: .
+    image: hidrate-mqtt-bridge:dev
+    container_name: hidrate-mqtt-bridge
     network_mode: host
-    volumes:
-      - /var/run/dbus:/var/run/dbus
     cap_add:
       - NET_ADMIN
-    devices:
-      - /dev/bus/usb:/dev/bus/usb
+      - NET_RAW
+    security_opt:
+      - apparmor=unconfined
+    volumes:
+      - ./config:/config
+      - /var/run/dbus:/var/run/dbus
     restart: unless-stopped
+    environment:
+      - CONFIG_PATH=/config/config.yaml
+      - WEB_PORT=8080
+      - TZ=Australia/Melbourne
