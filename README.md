@@ -39,6 +39,8 @@ It is a from-scratch reimplementation that:
 - 🔁 Persistent state — fill, totals, calibration survive container restarts
 - 🐧 Runs on Linux + BlueZ, no special hardware
 
+**NOTE:** This has only been tested on a HidrateSpark PRO (v1) 21oz / 621ml with chug lid.
+
 ## Quick start
 
 ### Prerequisites
